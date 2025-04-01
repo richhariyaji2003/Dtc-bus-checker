@@ -268,7 +268,7 @@
             margin-top: 8px;
             width: 100%;
             border-collapse: collapse;
-            color: white;
+            color W: white;
             background: #333;
             border-radius: 5px;
             overflow: hidden;
@@ -514,7 +514,7 @@
         <div class="navbar-toggle" onclick="toggleNavbar()">
             <div class="navbar-icons">
                 <svg xmlns="http://www.w3.org/2000/svg" class="navbar-icon lucide lucide-bus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="filterContent('buses')"><path d="M8 6v6"></path><path d="M15 6v6"></path><path d="M2 12h19.6"></path><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"></path><circle cx="7" cy="18" r="2"></circle><path d="M9 18h5"></path><circle cx="16" cy="18" r="2"></circle></svg>
-                <svg xmlns="http://www.w3.org/2000/svg" class="navbar-icon lucide lucide-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="filterContent('stops')"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="navbar-icon lucide lucide-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="goToUserLocation()"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
                 <svg xmlns="http://www.w3.org/2000/svg" class="navbar-icon lucide lucide-bar-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="filterContent('analytics')"><path d="M3 3v18h18"></path><path d="M13 17h7"></path><path d="M13 12h7"></path><path d="M13 7h7"></path><path d="M3 12h8"></path><path d="M3 7h5"></path></svg>
                 <svg xmlns="http://www.w3.org/2000/svg" class="navbar-icon lucide lucide-qr-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="filterContent('scan')"><rect width="5" height="5" x="3" y="3" rx="1"></rect><rect width="5" height="5" x="16" y="3" rx="1"></rect><rect width="5" height="5" x="3" y="16" rx="1"></rect><path d="M21 16h-3a2 2 0 0 0-2 2v3"></path><path d="M21 21v.01"></path><path d="M12 7v3a2 2 0 0 1-2 2H7"></path><path d="M3 12h.01"></path><path d="M12 3h.01"></path><path d="M12 16v.01"></path><path d="M16 12h1"></path><path d="M21 12v.01"></path><path d="M12 21v-1"></path></svg>
             </div>
@@ -605,7 +605,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const map = L.map('map', {
-            center: [28.6139, 77.2090],
+            center: [28.6139, 77.2090], // Default center (Delhi)
             zoom: 12,
             zoomControl: false
         });
@@ -617,12 +617,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             adjustMapHeight();
             map.invalidateSize();
+            checkGeolocationPermission();
         });
 
         const stopIcon = L.divIcon({
             className: 'bus-stop-icon',
             html: '<svg xmlns="http://www.w3.org/2000/svg" height="12" width="13.5" viewBox="0 0 576 512"><path fill="#1f13c3" d="M288 0C422.4 0 512 35.2 512 80l0 16 0 32c17.7 0 32 14.3 32 32l0 64c0 17.7-14.3 32-32 32l0 160c0 17.7-14.3 32-32 32l0 32c0 17.7-14.3 32-32 32l-32 0c-17.7 0-32-14.3-32-32l0-32-192 0 0 32c0 17.7-14.3 32-32 32l-32 0c-17.7 0-32-14.3-32-32l0-32c-17.7 0-32-14.3-32-32l0-160c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32c0 0 0 0 0 0l0-32s0 0 0 0l0-16C64 35.2 153.6 0 288 0zM128 160l0 96c0 17.7 14.3 32 32 32l112 0 0-160-112 0c-17.7 0-32 14.3-32 32zM304 288l112 0c17.7 0 32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-112 0 0 160zM144 400a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm288 0a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM384 80c0-8.8-7.2-16-16-16L208 64c-8.8 0-16 7.2-16 16s7.2 16 16 16l160 0c8.8 0 16-7.2 16-16z"/></svg>',
-            iconSize: [25, 25],  // Fixed size
+            iconSize: [25, 25],
             iconAnchor: [12.5, 25],
             popupAnchor: [0, -25]
         });
@@ -641,6 +642,7 @@
         let allBuses = [];
         const busStopMarkers = {};
         let currentFilter = 'all';
+        let hasGeoPermission = false;
 
         const initialBuses = <%- JSON.stringify(buses) %> || [];
         const initialBusStops = <%- JSON.stringify(busStops) %> || [];
@@ -734,7 +736,6 @@
         }
 
         function adjustMarkerSize(zoom) {
-            // Only adjust bus labels, not bus stops
             const scale = zoom < 12 ? 0.5 : zoom < 14 ? 0.75 : 1;
             const newLabelSize = [45 * scale, 22 * scale];
 
@@ -747,7 +748,6 @@
                 }));
             });
 
-            // Adjust opacity of bus stop icons based on zoom level
             const opacity = zoom > 14 ? 1 : zoom > 12 ? 0.7 : zoom > 10 ? 0.4 : 0.2;
             Object.values(busStopMarkers).forEach(marker => {
                 const element = marker.getElement();
@@ -955,7 +955,7 @@
 
         function filterContent(type) {
             currentFilter = type;
-            if (userMarker) {
+            if (userMarker && hasGeoPermission) {
                 const userLatLng = userMarker.getLatLng();
                 const nearest = findNearestLocations(userLatLng.lat, userLatLng.lng, allBuses, initialBusStops);
                 updateNearestDisplay(nearest.nearestStop, nearest.nearestBuses, nearest.nearbyStops);
@@ -1027,43 +1027,110 @@
             hideAttendancePortal();
         };
 
-        navigator.geolocation.watchPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                map.setView([latitude, longitude], 15);
-                map.invalidateSize();
+        function checkGeolocationPermission() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                initializeWithoutGeolocation();
+                return;
+            }
 
-                if (userMarker) {
-                    userMarker.setLatLng([latitude, longitude]);
+            navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+                if (result.state === 'granted') {
+                    hasGeoPermission = true;
+                    startGeolocationWatch();
+                } else if (result.state === 'prompt') {
+                    startGeolocationWatch(); // Will trigger permission request
                 } else {
-                    userMarker = L.marker([latitude, longitude], { icon: userIcon })
-                        .addTo(map)
-                        .bindPopup('You are here');
+                    alert('Geolocation permission denied. Please enable location access in your browser settings.');
+                    initializeWithoutGeolocation();
                 }
+            });
+        }
 
-                if (allBuses.length > 0 && initialBusStops.length > 0) {
-                    const nearest = findNearestLocations(latitude, longitude, allBuses, initialBusStops);
-                    updateNearestDisplay(nearest.nearestStop, nearest.nearestBuses, nearest.nearbyStops);
-                }
+        function startGeolocationWatch() {
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    hasGeoPermission = true;
+                    const { latitude, longitude } = position.coords;
+                    map.setView([latitude, longitude], 15);
+                    map.invalidateSize();
 
-                updateBusMarkers(allBuses, initialBusStops);
-                updateBusStopMarkers(initialBusStops);
-            },
-            (error) => {
-                console.error('Geolocation error:', error);
-                map.invalidateSize();
-                updateBusMarkers(initialBuses, initialBusStops);
-                updateBusStopMarkers(initialBusStops);
-            },
-            { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
-        );
+                    if (userMarker) {
+                        userMarker.setLatLng([latitude, longitude]);
+                    } else {
+                        userMarker = L.marker([latitude, longitude], { icon: userIcon })
+                            .addTo(map)
+                            .bindPopup('You are here');
+                    }
+
+                    if (allBuses.length > 0 && initialBusStops.length > 0) {
+                        const nearest = findNearestLocations(latitude, longitude, allBuses, initialBusStops);
+                        updateNearestDisplay(nearest.nearestStop, nearest.nearestBuses, nearest.nearbyStops);
+                    }
+
+                    updateBusMarkers(allBuses, initialBusStops);
+                    updateBusStopMarkers(initialBusStops);
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    if (error.code === error.PERMISSION_DENIED) {
+                        hasGeoPermission = false;
+                        alert('Geolocation permission denied. Please enable location access to use location features.');
+                        initializeWithoutGeolocation();
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+            );
+        }
+
+        function initializeWithoutGeolocation() {
+            map.setView([28.6139, 77.2090], 12); // Default view
+            map.invalidateSize();
+            updateBusMarkers(initialBuses, initialBusStops);
+            updateBusStopMarkers(initialBusStops);
+            document.querySelector('.data').innerHTML = `
+                <h3>Location unavailable</h3>
+                <p>Please enable geolocation to see nearest stops and buses</p>
+            `;
+            document.getElementById('nearest-stop').innerHTML = 'Nearest Stop: <b>Location unavailable</b>';
+            document.getElementById('bus-arriving').innerHTML = 'Bus Arriving: <b>Location unavailable</b>';
+        }
+
+        function goToUserLocation() {
+            if (hasGeoPermission && userMarker) {
+                const userLatLng = userMarker.getLatLng();
+                map.setView([userLatLng.lat, userLatLng.lng], 15);
+                filterContent('stops');
+            } else {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        hasGeoPermission = true;
+                        const { latitude, longitude } = position.coords;
+                        map.setView([latitude, longitude], 15);
+                        if (!userMarker) {
+                            userMarker = L.marker([latitude, longitude], { icon: userIcon })
+                                .addTo(map)
+                                .bindPopup('You are here');
+                        } else {
+                            userMarker.setLatLng([latitude, longitude]);
+                        }
+                        filterContent('stops');
+                    },
+                    (error) => {
+                        alert('Unable to access location. Please ensure geolocation is enabled.');
+                        console.error('Geolocation error:', error);
+                    },
+                    { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+                );
+            }
+        }
 
         const socket = io();
         socket.on('busUpdate', (data) => {
             updateBusMarkers(data.buses, data.busStops);
             updateBusStopMarkers(data.busStops);
             
-            if (userMarker) {
+            if (userMarker && hasGeoPermission) {
                 const userLatLng = userMarker.getLatLng();
                 const nearest = findNearestLocations(userLatLng.lat, userLatLng.lng, data.buses, data.busStops);
                 updateNearestDisplay(nearest.nearestStop, nearest.nearestBuses, nearest.nearbyStops);
