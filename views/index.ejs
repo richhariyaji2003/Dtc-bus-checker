@@ -21,12 +21,12 @@
         body {
             background-color: #efdfdf;
             color: white;
-            margin: 0; /* Changed from -1% */
+            margin: 0;
             font-family: 'Karla', sans-serif;
             overflow-x: hidden;
-            height: 100vh; /* Added */
-            padding: 0; /* Added */
-            overflow: hidden; /* Modified */
+            height: 100vh;
+            padding: 0;
+            overflow: hidden;
         }
 
         .back {
@@ -34,7 +34,7 @@
             background-size: 400% 400%;
             animation: gradient 15s ease infinite;
             overflow: hidden;
-            height: calc(100vh - 90px); /* Added for dynamic height */
+            height: calc(100vh - 90px);
         }
 
         @keyframes gradient {
@@ -55,11 +55,11 @@
         .sectop {
             margin-top: 6px;
             min-height: 300px;
-            margin: 0; /* Changed from 4% 3.5% */
+            margin: 0;
             color: white;
             overflow: hidden;
             position: relative;
-            height: 100%; /* Added */
+            height: 100%;
         }
 
         .leaflet-control-attribution {
@@ -109,14 +109,14 @@
 
         .map-container {
             width: 100%;
-            height: 100%; /* Changed from 535px */
+            height: 100%;
             border-radius: 8px;
             box-shadow: 5px 7px 12px black;
             overflow: hidden;
             transition: all 0.3s ease;
-            position: absolute; /* Added */
-            top: 0; /* Added */
-            left: 0; /* Added */
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .map-container.fullscreen {
@@ -131,14 +131,14 @@
         }
 
         .bus-label {
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid #333;
+            background: rgba(255, 164, 235, 0.8);
+            border: 1px solid #570047;
             padding: 1px 3px;
-            font-size: 10px;
+            font-size: 8px;
             font-weight: bold;
             text-align: center;
             border-radius: 2px;
-            color: #000;
+            color: #570047;
             pointer-events: none;
         }
 
@@ -165,11 +165,11 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            right: 10px; /* Added */
+            right: 10px;
             z-index: 1000;
             display: flex;
             gap: 10px;
-            justify-content: space-between; /* Added */
+            justify-content: space-between;
         }
 
         .map-overlay div {
@@ -286,25 +286,25 @@
 
         .bus-table td input[type="checkbox"] {
             margin-right: 10px;
-            width: 20px; /* Added */
-            height: 20px; /* Added */
-            appearance: none; /* Added */
-            border: 2px solid #fff; /* Added */
-            border-radius: 4px; /* Added */
-            cursor: pointer; /* Added */
+            width: 20px;
+            height: 20px;
+            appearance: none;
+            border: 2px solid #fff;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         .bus-table td input[type="checkbox"]:checked {
-            background-color: #00ff00; /* Added */
-            border-color: #00ff00; /* Added */
+            background-color: #00ff00;
+            border-color: #00ff00;
         }
 
         .bus-table td input[type="checkbox"]:checked::after {
-            content: '✔'; /* Added */
-            position: absolute; /* Added */
-            color: #000; /* Added */
-            font-size: 14px; /* Added */
-            transform: translate(2px, 2px); /* Added */
+            content: '✔';
+            position: absolute;
+            color: #000;
+            font-size: 14px;
+            transform: translate(2px, 2px);
         }
 
         .navbar-button {
@@ -441,7 +441,6 @@
             border-color: #00d363;
         }
 
-        /* QR Scanner Popup */
         .qr-scanner-popup {
             display: none;
             position: fixed;
@@ -481,6 +480,11 @@
             0% { top: 0; }
             50% { top: calc(100% - 2px); }
             100% { top: 0; }
+        }
+
+        .bus-stop-icon svg {
+            opacity: 1;
+            transition: opacity 0.3s ease;
         }
     </style>
 </head>
@@ -615,18 +619,10 @@
             map.invalidateSize();
         });
 
-        const baseIconSize = [35, 18];
-        const busIcon = L.icon({
-            iconUrl: '/bus-icon.png',
-            iconSize: baseIconSize,
-            iconAnchor: [baseIconSize[0] / 2, baseIconSize[1] / 2],
-            popupAnchor: [0, -baseIconSize[1] / 2]
-        });
-
         const stopIcon = L.divIcon({
             className: 'bus-stop-icon',
             html: '<svg xmlns="http://www.w3.org/2000/svg" height="12" width="13.5" viewBox="0 0 576 512"><path fill="#1f13c3" d="M288 0C422.4 0 512 35.2 512 80l0 16 0 32c17.7 0 32 14.3 32 32l0 64c0 17.7-14.3 32-32 32l0 160c0 17.7-14.3 32-32 32l0 32c0 17.7-14.3 32-32 32l-32 0c-17.7 0-32-14.3-32-32l0-32-192 0 0 32c0 17.7-14.3 32-32 32l-32 0c-17.7 0-32-14.3-32-32l0-32c-17.7 0-32-14.3-32-32l0-160c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32c0 0 0 0 0 0l0-32s0 0 0 0l0-16C64 35.2 153.6 0 288 0zM128 160l0 96c0 17.7 14.3 32 32 32l112 0 0-160-112 0c-17.7 0-32 14.3-32 32zM304 288l112 0c17.7 0 32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-112 0 0 160zM144 400a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm288 0a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM384 80c0-8.8-7.2-16-16-16L208 64c-8.8 0-16 7.2-16 16s7.2 16 16 16l160 0c8.8 0 16-7.2 16-16z"/></svg>',
-            iconSize: [25, 25],
+            iconSize: [25, 25],  // Fixed size
             iconAnchor: [12.5, 25],
             popupAnchor: [0, -25]
         });
@@ -641,6 +637,7 @@
 
         let userMarker = null;
         const busMarkers = {};
+        const stopCircles = {};
         let allBuses = [];
         const busStopMarkers = {};
         let currentFilter = 'all';
@@ -737,29 +734,26 @@
         }
 
         function adjustMarkerSize(zoom) {
+            // Only adjust bus labels, not bus stops
             const scale = zoom < 12 ? 0.5 : zoom < 14 ? 0.75 : 1;
-            const newIconSize = [baseIconSize[0] * scale, baseIconSize[1] * scale];
-            const newLabelSize = [30 * scale, 15 * scale];
+            const newLabelSize = [45 * scale, 22 * scale];
 
-            Object.values(busMarkers).forEach(({ marker, label }) => {
-                marker.setIcon(L.icon({
-                    iconUrl: '/bus-icon.png',
-                    iconSize: newIconSize,
-                    iconAnchor: [newIconSize[0] / 2, newIconSize[1] / 2],
-                    popupAnchor: [0, -newIconSize[1] / 2]
-                }));
+            Object.values(busMarkers).forEach(label => {
                 label.setIcon(L.divIcon({
                     className: 'bus-label',
                     html: label.getElement().innerHTML,
                     iconSize: newLabelSize,
-                    iconAnchor: [newLabelSize[0] / 2, newLabelSize[1] + 5 * scale]
+                    iconAnchor: [newLabelSize[0] / 2, newLabelSize[1] / 2]
                 }));
             });
 
-            const stopScale = zoom < 12 ? 0.5 : zoom < 14 ? 0.75 : 1;
-            const newStopSize = [25 * stopScale, 25 * stopScale];
+            // Adjust opacity of bus stop icons based on zoom level
+            const opacity = zoom > 14 ? 1 : zoom > 12 ? 0.7 : zoom > 10 ? 0.4 : 0.2;
             Object.values(busStopMarkers).forEach(marker => {
-                marker.setIcon(stopIcon);
+                const element = marker.getElement();
+                if (element) {
+                    element.querySelector('svg').style.opacity = opacity;
+                }
             });
         }
 
@@ -768,14 +762,17 @@
             return buses.filter(bus => bounds.contains([bus.latitude, bus.longitude]));
         }
 
-        function updateBusMarkers(buses) {
+        function updateBusMarkers(buses, stops) {
             allBuses = buses;
             const visibleBuses = filterBusesInBounds(buses);
 
             Object.keys(busMarkers).forEach(busNo => {
                 if (!visibleBuses.find(bus => bus.busNo === busNo)) {
-                    map.removeLayer(busMarkers[busNo].marker);
-                    map.removeLayer(busMarkers[busNo].label);
+                    map.removeLayer(busMarkers[busNo]);
+                    if (stopCircles[busNo]) {
+                        map.removeLayer(stopCircles[busNo]);
+                        delete stopCircles[busNo];
+                    }
                     delete busMarkers[busNo];
                 }
             });
@@ -783,30 +780,52 @@
             visibleBuses.forEach(bus => {
                 const { busNo, latitude, longitude, routeNo } = bus;
 
+                const nearbyStop = stops.find(stop => 
+                    calculateDistance(latitude, longitude, stop.latitude, stop.longitude) < 0.05
+                );
+
                 if (busMarkers[busNo]) {
-                    const marker = busMarkers[busNo].marker;
-                    const label = busMarkers[busNo].label;
+                    const label = busMarkers[busNo];
                     const newLatLng = new L.LatLng(latitude, longitude);
+                    animateMarker(label, label.getLatLng(), newLatLng);
+                    label.setPopupContent(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
 
-                    animateMarker(marker, marker.getLatLng(), newLatLng);
-                    label.setLatLng(newLatLng);
-                    marker.setPopupContent(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
-                    label.getElement().innerHTML = routeNo;
+                    if (nearbyStop) {
+                        if (!stopCircles[busNo]) {
+                            stopCircles[busNo] = L.circle([latitude, longitude], {
+                                radius: 50,
+                                color: 'blue',
+                                fillColor: '#5570fa',
+                                fillOpacity: 0.3
+                            }).addTo(map);
+                        } else {
+                            stopCircles[busNo].setLatLng(newLatLng);
+                        }
+                    } else if (stopCircles[busNo]) {
+                        map.removeLayer(stopCircles[busNo]);
+                        delete stopCircles[busNo];
+                    }
                 } else {
-                    const marker = L.marker([latitude, longitude], { icon: busIcon })
-                        .addTo(map)
-                        .bindPopup(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
-
                     const label = L.marker([latitude, longitude], {
                         icon: L.divIcon({
                             className: 'bus-label',
-                            html: routeNo,
+                            html: `${busNo} (${routeNo})`,
                             iconSize: [30, 15],
-                            iconAnchor: [15, 20]
+                            iconAnchor: [15, 7.5]
                         })
-                    }).addTo(map);
+                    }).addTo(map)
+                    .bindPopup(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
 
-                    busMarkers[busNo] = { marker, label };
+                    busMarkers[busNo] = label;
+
+                    if (nearbyStop) {
+                        stopCircles[busNo] = L.circle([latitude, longitude], {
+                            radius: 50,
+                            color: 'blue',
+                            fillColor: '#5570fa',
+                            fillOpacity: 0.3
+                        }).addTo(map);
+                    }
                 }
             });
 
@@ -820,17 +839,14 @@
                 const { name, latitude, longitude } = stop;
                 const key = `${latitude},${longitude}`;
 
-                if (bounds.contains([latitude, longitude]) && !busStopMarkers[key]) {
-                    const marker = L.marker([latitude, longitude], { icon: stopIcon })
-                        .addTo(map)
-                        .bindPopup(`Stop: ${name}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
-                    busStopMarkers[key] = marker;
-                }
-            });
-
-            Object.keys(busStopMarkers).forEach(key => {
-                const [lat, lng] = key.split(',').map(Number);
-                if (!bounds.contains([lat, lng])) {
+                if (bounds.contains([latitude, longitude])) {
+                    if (!busStopMarkers[key]) {
+                        const marker = L.marker([latitude, longitude], { icon: stopIcon })
+                            .addTo(map)
+                            .bindPopup(`Stop: ${name}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
+                        busStopMarkers[key] = marker;
+                    }
+                } else if (busStopMarkers[key]) {
                     map.removeLayer(busStopMarkers[key]);
                     delete busStopMarkers[key];
                 }
@@ -850,8 +866,9 @@
                     const lat = startLatLng.lat + (endLatLng.lat - startLatLng.lat) * progress;
                     const lng = startLatLng.lng + (endLatLng.lng - startLatLng.lng) * progress;
                     marker.setLatLng([lat, lng]);
-                    const label = busMarkers[marker._popup._content.split('<br>')[0].replace('Bus: ', '')].label;
-                    label.setLatLng([lat, lng]);
+                    if (stopCircles[marker._popup._content.split('<br>')[0].replace('Bus: ', '')]) {
+                        stopCircles[marker._popup._content.split('<br>')[0].replace('Bus: ', '')].setLatLng([lat, lng]);
+                    }
                     requestAnimationFrame(animate);
                 } else {
                     marker.setLatLng(endLatLng);
@@ -914,7 +931,6 @@
                 videoElement.play();
                 qrScannerPopup.classList.add('active');
                 
-                // Simulate QR detection
                 setTimeout(() => {
                     alert('QR Code detected! (Simulation)');
                     closeQRScanner();
@@ -935,10 +951,6 @@
                 videoElement.srcObject = null;
             }
             qrScannerPopup.classList.remove('active');
-        }
-
-        function scanQR() {
-            openQRScanner();
         }
 
         function filterContent(type) {
@@ -1034,13 +1046,13 @@
                     updateNearestDisplay(nearest.nearestStop, nearest.nearestBuses, nearest.nearbyStops);
                 }
 
-                updateBusMarkers(allBuses);
+                updateBusMarkers(allBuses, initialBusStops);
                 updateBusStopMarkers(initialBusStops);
             },
             (error) => {
                 console.error('Geolocation error:', error);
                 map.invalidateSize();
-                updateBusMarkers(initialBuses);
+                updateBusMarkers(initialBuses, initialBusStops);
                 updateBusStopMarkers(initialBusStops);
             },
             { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
@@ -1048,7 +1060,7 @@
 
         const socket = io();
         socket.on('busUpdate', (data) => {
-            updateBusMarkers(data.buses);
+            updateBusMarkers(data.buses, data.busStops);
             updateBusStopMarkers(data.busStops);
             
             if (userMarker) {
@@ -1059,13 +1071,13 @@
         });
 
         map.on('moveend zoomend', () => {
-            updateBusMarkers(allBuses);
+            updateBusMarkers(allBuses, initialBusStops);
             updateBusStopMarkers(initialBusStops);
         });
 
         window.addEventListener('resize', adjustMapHeight);
 
-        updateBusMarkers(initialBuses);
+        updateBusMarkers(initialBuses, initialBusStops);
         updateBusStopMarkers(initialBusStops);
         if (document.getElementById('analysisPage').classList.contains('active')) drawHistogram();
     </script>

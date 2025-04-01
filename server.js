@@ -3,8 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const axios = require('axios');
 const protobuf = require('protobufjs');
-const xml2js = require('xml2js');
-const fs = require('fs'); // Add this to read the file
+const fs = require('fs');
+const csv = require('csv-parse');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,40 +25,43 @@ const FeedMessage = root.lookupType('transit_realtime.FeedMessage');
 const url = 'https://otd.delhi.gov.in/api/realtime/VehiclePositions.pb?key=7pnJf5w6MCh0JWrdisnafk0YhnKfUqxx';
 
 let busData = []; // Store the latest bus data
-let busStops = []; // Store bus stop data from KML
+let busStops = []; // Store bus stop data from CSV
 
-// Function to parse KML data
-const parseKML = (kmlString) => {
+// Function to parse CSV data
+const parseCSV = (csvString) => {
     return new Promise((resolve, reject) => {
-        xml2js.parseString(kmlString, (err, result) => {
-            if (err) return reject(err);
-
-            const placemarks = result.kml.Document[0].Folder[0].Placemark;
-            const stops = placemarks.map(placemark => {
-                const coords = placemark.Point[0].coordinates[0].split(',').map(Number);
-                const data = placemark.ExtendedData[0].SchemaData[0].SimpleData;
-                const name = data.find(d => d.$.name === 'BS_NM_STND')?._;
-                return {
-                    name: name || 'Unknown Stop',
-                    longitude: coords[0],
-                    latitude: coords[1]
-                };
+        const stops = [];
+        
+        csv.parse(csvString, {
+            columns: true,
+            skip_empty_lines: true
+        })
+        .on('data', (row) => {
+            stops.push({
+                name: row.stop_name || 'Unknown Stop',
+                latitude: parseFloat(row.stop_lat),
+                longitude: parseFloat(row.stop_lon)
             });
+        })
+        .on('end', () => {
             resolve(stops);
+        })
+        .on('error', (err) => {
+            reject(err);
         });
     });
 };
 
-// Read the KML file from the 'data' folder
-const kmlFilePath = 'data/delhi_bus_stops.kml';
-const kmlString = fs.readFileSync(kmlFilePath, 'utf8');
+// Read the CSV file from the 'data' folder
+const csvFilePath = 'data/stops.csv';
+const csvString = fs.readFileSync(csvFilePath, 'utf8');
 
-// Parse KML data once on server start
-parseKML(kmlString).then(stops => {
+// Parse CSV data once on server start
+parseCSV(csvString).then(stops => {
     busStops = stops;
-    console.log(`Parsed ${busStops.length} bus stops from KML`);
+    console.log(`Parsed ${busStops.length} bus stops from CSV`);
 }).catch(err => {
-    console.error('Error parsing KML:', err);
+    console.error('Error parsing CSV:', err);
 });
 
 // Fetch and parse vehicle position data
