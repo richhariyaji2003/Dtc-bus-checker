@@ -140,6 +140,14 @@
             border-radius: 2px;
             color: #570047;
             pointer-events: none;
+            opacity: 1; /* Default opacity */
+            transition: opacity 0.3s ease; /* Smooth opacity transition */
+        }
+
+        .bus-dot {
+            background: #ff69b4; /* Pink color */
+            border-radius: 50%;
+            pointer-events: none;
         }
 
         .data {
@@ -173,13 +181,14 @@
         }
 
         .map-overlay div {
-            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.8);
+            box-shadow: 1px 2px rgba(0, 0, 0, 0.783);
+            backdrop-filter: blur(15px);
             border-radius: 14px;
             padding: 5px 10px;
             font-size: 11px;
             font-weight: 600;
             color: white;
-            border: #ffffff 2px solid;
             display: flex;
             align-items: center;
             gap: 5px;
@@ -187,7 +196,7 @@
 
         .map-overlay b {
             font-size: 8px;
-            color: #e3e92e;
+            color: #ffffff;
             font-weight: 400;
         }
 
@@ -482,8 +491,7 @@
         }
 
         .bus-stop-icon svg {
-            opacity: 1;
-            transition: opacity 0.3s ease;
+            opacity: 1; /* Constant opacity for bus stops */
         }
     </style>
 </head>
@@ -652,6 +660,13 @@
             popupAnchor: [0, 0]
         });
 
+        const busDotIcon = L.divIcon({
+            className: 'bus-dot',
+            html: '<div style="width: 10px; height: 10px;"></div>',
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
+        });
+
         let userMarker = null;
         const busMarkers = {};
         const stopCircles = {};
@@ -659,7 +674,8 @@
         const busStopMarkers = {};
         let currentFilter = 'all';
         let hasGeoPermission = false;
-        const ZOOM_THRESHOLD = 14; // Minimum zoom level to show bus stops
+        const ZOOM_THRESHOLD = 14; // Threshold for switching between bus labels and dots
+        const BUS_LABEL_SIZE = [30, 15]; // Fixed size for bus labels
 
         const initialBuses = <%- JSON.stringify(buses) %> || [];
         let initialBusStops = <%- JSON.stringify(busStops) %> || [];
@@ -745,24 +761,13 @@
             }
         }
 
-        function adjustMarkerSize(zoom) {
-            const scale = zoom < 12 ? 0.5 : zoom < 14 ? 0.75 : 1;
-            const newLabelSize = [45 * scale, 22 * scale];
-
-            Object.values(busMarkers).forEach(label => {
-                label.setIcon(L.divIcon({
-                    className: 'bus-label',
-                    html: label.getElement().innerHTML,
-                    iconSize: newLabelSize,
-                    iconAnchor: [newLabelSize[0] / 2, newLabelSize[1] / 2]
-                }));
-            });
-
-            const opacity = zoom > 14 ? 1 : zoom > 12 ? 0.7 : zoom > 10 ? 0.4 : 0.2;
-            Object.values(busStopMarkers).forEach(marker => {
+        function adjustMarkerOpacity(zoom) {
+            // Adjust opacity for bus labels when they are visible
+            const opacity = zoom > 16 ? 1 : zoom > 14 ? 0.7 : 0.4; // Adjusted for finer control
+            Object.values(busMarkers).forEach(marker => {
                 const element = marker.getElement();
-                if (element) {
-                    element.querySelector('svg').style.opacity = opacity;
+                if (element && element.classList.contains('bus-label')) {
+                    element.style.opacity = opacity;
                 }
             });
         }
@@ -775,7 +780,10 @@
         function updateBusMarkers(buses, stops) {
             allBuses = buses;
             const visibleBuses = filterBusesInBounds(buses);
+            const zoomLevel = map.getZoom();
+            const useLabels = zoomLevel >= ZOOM_THRESHOLD;
 
+            // Only remove markers that are no longer in the bus data
             Object.keys(busMarkers).forEach(busNo => {
                 if (!visibleBuses.find(bus => bus.busNo === busNo)) {
                     map.removeLayer(busMarkers[busNo]);
@@ -795,51 +803,57 @@
                 );
 
                 if (busMarkers[busNo]) {
-                    const label = busMarkers[busNo];
+                    const marker = busMarkers[busNo];
                     const newLatLng = new L.LatLng(latitude, longitude);
-                    animateMarker(label, label.getLatLng(), newLatLng);
-                    label.setPopupContent(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
+                    animateMarker(marker, marker.getLatLng(), newLatLng);
+                    marker.setPopupContent(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
 
-                    if (nearbyStop) {
-                        if (!stopCircles[busNo]) {
-                            stopCircles[busNo] = L.circle([latitude, longitude], {
-                                radius: 50,
-                                color: 'blue',
-                                fillColor: '#5570fa',
-                                fillOpacity: 0.3
-                            }).addTo(map);
-                        } else {
-                            stopCircles[busNo].setLatLng(newLatLng);
-                        }
-                    } else if (stopCircles[busNo]) {
-                        map.removeLayer(stopCircles[busNo]);
-                        delete stopCircles[busNo];
-                    }
-                } else {
-                    const label = L.marker([latitude, longitude], {
-                        icon: L.divIcon({
+                    // Switch between label and dot based on zoom
+                    if (useLabels && !marker.getElement().classList.contains('bus-label')) {
+                        marker.setIcon(L.divIcon({
                             className: 'bus-label',
                             html: `${busNo} (${routeNo})`,
-                            iconSize: [30, 15],
-                            iconAnchor: [15, 7.5]
-                        })
-                    }).addTo(map)
-                    .bindPopup(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
+                            iconSize: BUS_LABEL_SIZE,
+                            iconAnchor: [BUS_LABEL_SIZE[0] / 2, BUS_LABEL_SIZE[1] / 2]
+                        }));
+                    } else if (!useLabels && !marker.getElement().classList.contains('bus-dot')) {
+                        marker.setIcon(busDotIcon);
+                    }
+                } else {
+                    const icon = useLabels ? L.divIcon({
+                        className: 'bus-label',
+                        html: `${busNo} (${routeNo})`,
+                        iconSize: BUS_LABEL_SIZE,
+                        iconAnchor: [BUS_LABEL_SIZE[0] / 2, BUS_LABEL_SIZE[1] / 2]
+                    }) : busDotIcon;
 
-                    busMarkers[busNo] = label;
+                    const marker = L.marker([latitude, longitude], { icon })
+                        .addTo(map)
+                        .bindPopup(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
 
-                    if (nearbyStop) {
+                    busMarkers[busNo] = marker;
+                }
+
+                if (nearbyStop) {
+                    if (!stopCircles[busNo]) {
                         stopCircles[busNo] = L.circle([latitude, longitude], {
                             radius: 50,
                             color: 'blue',
                             fillColor: '#5570fa',
                             fillOpacity: 0.3
                         }).addTo(map);
+                    } else {
+                        stopCircles[busNo].setLatLng([latitude, longitude]);
                     }
+                } else if (stopCircles[busNo]) {
+                    map.removeLayer(stopCircles[busNo]);
+                    delete stopCircles[busNo];
                 }
             });
 
-            adjustMarkerSize(map.getZoom());
+            if (useLabels) {
+                adjustMarkerOpacity(zoomLevel);
+            }
         }
 
         function updateBusStopMarkers(stops) {
@@ -875,8 +889,6 @@
                 });
                 initialBusStops = stops; // Update local stops cache
             }
-
-            adjustMarkerSize(zoomLevel);
         }
 
         function animateMarker(marker, startLatLng, endLatLng) {
