@@ -26,6 +26,8 @@ const url = 'https://otd.delhi.gov.in/api/realtime/VehiclePositions.pb?key=7pnJf
 
 let busData = []; // Store the latest bus data
 let busStops = []; // Store bus stop data from CSV
+const clientZoomLevels = new Map(); // Store zoom levels for each client
+const ZOOM_THRESHOLD = 14; // Minimum zoom level to send bus stops
 
 // Function to parse CSV data
 const parseCSV = (csvString) => {
@@ -87,8 +89,15 @@ const fetchBusData = async () => {
 
         console.log(`Fetched ${busData.length} buses`);
 
-        // Emit the updated bus data and bus stops to all connected clients
-        io.emit('busUpdate', { buses: busData, busStops });
+        // Emit updated bus data to each connected client
+        io.sockets.sockets.forEach((socket) => {
+            const zoomLevel = clientZoomLevels.get(socket.id) || 0;
+            const updateData = { buses: busData };
+            if (zoomLevel >= ZOOM_THRESHOLD) {
+                updateData.busStops = busStops;
+            }
+            socket.emit('busUpdate', updateData);
+        });
     } catch (error) {
         console.error('Error fetching bus data:', error.message);
     }
@@ -99,7 +108,29 @@ setInterval(fetchBusData, 1000);
 
 // Serve the webpage
 app.get('/', (req, res) => {
-    res.render('index', { buses: busData, busStops });
+    res.render('index', { buses: busData, busStops: [] }); // Send empty busStops initially
+});
+
+// Handle socket connections
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+
+    // Handle zoom level updates from clients
+    socket.on('zoomLevel', (zoom) => {
+        clientZoomLevels.set(socket.id, zoom);
+        // Immediately send data with appropriate busStops based on zoom
+        const updateData = { buses: busData };
+        if (zoom >= ZOOM_THRESHOLD) {
+            updateData.busStops = busStops;
+        }
+        socket.emit('busUpdate', updateData);
+    });
+
+    // Clean up on disconnect
+    socket.on('disconnect', () => {
+        clientZoomLevels.delete(socket.id);
+        console.log('Client disconnected:', socket.id);
+    });
 });
 
 // Start the server

@@ -173,14 +173,13 @@
         }
 
         .map-overlay div {
-            background-color: rgba(0, 0, 0, 0.8);
-            box-shadow: 1px 2px rgba(0, 0, 0, 0.783);
-            backdrop-filter: blur(15px);
+            background-color: rgb(0, 0, 0);
             border-radius: 14px;
             padding: 5px 10px;
             font-size: 11px;
             font-weight: 600;
             color: white;
+            border: #ffffff 2px solid;
             display: flex;
             align-items: center;
             gap: 5px;
@@ -188,7 +187,7 @@
 
         .map-overlay b {
             font-size: 8px;
-            color: #ffffff;
+            color: #e3e92e;
             font-weight: 400;
         }
 
@@ -660,9 +659,10 @@
         const busStopMarkers = {};
         let currentFilter = 'all';
         let hasGeoPermission = false;
+        const ZOOM_THRESHOLD = 14; // Minimum zoom level to show bus stops
 
         const initialBuses = <%- JSON.stringify(buses) %> || [];
-        const initialBusStops = <%- JSON.stringify(busStops) %> || [];
+        let initialBusStops = <%- JSON.stringify(busStops) %> || [];
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
@@ -687,7 +687,7 @@
             })).sort((a, b) => a.distance - b.distance);
 
             return {
-                nearestStop: stopsWithDistance[0],
+                nearestStop: stopsWithDistance[0] || { name: 'Unknown', distance: 0 },
                 nearestBuses: busesWithDistance.slice(0, 4),
                 nearbyStops: stopsWithDistance.slice(0, 3)
             };
@@ -843,26 +843,40 @@
         }
 
         function updateBusStopMarkers(stops) {
+            const zoomLevel = map.getZoom();
             const bounds = map.getBounds();
 
-            stops.forEach(stop => {
-                const { name, latitude, longitude } = stop;
-                const key = `${latitude},${longitude}`;
-
-                if (bounds.contains([latitude, longitude])) {
-                    if (!busStopMarkers[key]) {
-                        const marker = L.marker([latitude, longitude], { icon: stopIcon })
-                            .addTo(map)
-                            .bindPopup(`Stop: ${name}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
-                        busStopMarkers[key] = marker;
-                    }
-                } else if (busStopMarkers[key]) {
+            // Clear existing bus stop markers if zoomed out too far
+            if (zoomLevel < ZOOM_THRESHOLD) {
+                Object.keys(busStopMarkers).forEach(key => {
                     map.removeLayer(busStopMarkers[key]);
                     delete busStopMarkers[key];
-                }
-            });
+                });
+                return;
+            }
 
-            adjustMarkerSize(map.getZoom());
+            // Update markers only if stops data is provided
+            if (stops && stops.length > 0) {
+                stops.forEach(stop => {
+                    const { name, latitude, longitude } = stop;
+                    const key = `${latitude},${longitude}`;
+
+                    if (bounds.contains([latitude, longitude])) {
+                        if (!busStopMarkers[key]) {
+                            const marker = L.marker([latitude, longitude], { icon: stopIcon })
+                                .addTo(map)
+                                .bindPopup(`Stop: ${name}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
+                            busStopMarkers[key] = marker;
+                        }
+                    } else if (busStopMarkers[key]) {
+                        map.removeLayer(busStopMarkers[key]);
+                        delete busStopMarkers[key];
+                    }
+                });
+                initialBusStops = stops; // Update local stops cache
+            }
+
+            adjustMarkerSize(zoomLevel);
         }
 
         function animateMarker(marker, startLatLng, endLatLng) {
@@ -1195,17 +1209,25 @@
 
         const socket = io();
         socket.on('busUpdate', (data) => {
-            updateBusMarkers(data.buses, data.busStops);
-            updateBusStopMarkers(data.busStops);
+            updateBusMarkers(data.buses, data.busStops || initialBusStops);
+            updateBusStopMarkers(data.busStops || []);
             
             if (userMarker && hasGeoPermission) {
                 const userLatLng = userMarker.getLatLng();
-                const nearest = findNearestLocations(userLatLng.lat, userLatLng.lng, data.buses, data.busStops);
+                const nearest = findNearestLocations(userLatLng.lat, userLatLng.lng, data.buses, data.busStops || initialBusStops);
                 updateNearestDisplay(nearest.nearestStop, nearest.nearestBuses, nearest.nearbyStops);
             }
         });
 
-        map.on('moveend zoomend', () => {
+        // Send zoom level to server on zoom change
+        map.on('zoomend', () => {
+            const zoomLevel = map.getZoom();
+            socket.emit('zoomLevel', zoomLevel);
+            updateBusMarkers(allBuses, initialBusStops);
+            updateBusStopMarkers(initialBusStops);
+        });
+
+        map.on('moveend', () => {
             updateBusMarkers(allBuses, initialBusStops);
             updateBusStopMarkers(initialBusStops);
         });
@@ -1215,6 +1237,9 @@
         updateBusMarkers(initialBuses, initialBusStops);
         updateBusStopMarkers(initialBusStops);
         if (document.getElementById('analysisPage').classList.contains('active')) drawHistogram();
+
+        // Send initial zoom level
+        socket.emit('zoomLevel', map.getZoom());
     </script>
 </body>
 </html>
