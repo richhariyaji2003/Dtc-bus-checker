@@ -785,53 +785,61 @@
         }
 
         function handleCheck(busNo, checked, routeNo) {
-  if (checked) {
-    showCheckModal(busNo, routeNo);
-  }
-}
+            if (checked) {
+                showCheckModal(busNo, routeNo);
+            }
+        }
 
-function showCheckModal(busNo, routeNo) {
-  document.getElementById('checkBusNo').value = busNo;
-  document.getElementById('checkRouteNo').value = routeNo;
-  document.getElementById('checkModal').style.display = 'block';
-}
+        function showCheckModal(busNo, routeNo) {
+            document.getElementById('checkBusNo').value = busNo;
+            document.getElementById('checkRouteNo').value = routeNo;
+            document.getElementById('nonTicketHolders').value = '';
+            document.getElementById('fineCollected').value = '';
+            document.getElementById('checkModal').style.display = 'block';
+        }
 
-function closeCheckModal() {
-  document.getElementById('checkModal').style.display = 'none';
-}
+        function closeCheckModal() {
+            document.getElementById('checkModal').style.display = 'none';
+        }
 
-document.getElementById('checkForm').onsubmit = async function(e) {
-  e.preventDefault();
-  const busNo = document.getElementById('checkBusNo').value;
-  const routeNo = document.getElementById('checkRouteNo').value;
-  const nonTicketHolders = parseInt(document.getElementById('nonTicketHolders').value) || 0;
-  const fineCollected = parseInt(document.getElementById('fineCollected').value) || 0;
+        document.getElementById('checkForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const busNo = document.getElementById('checkBusNo').value;
+            const routeNo = document.getElementById('checkRouteNo').value;
+            const nonTicketHolders = parseInt(document.getElementById('nonTicketHolders').value) || 0;
+            const fineCollected = parseInt(document.getElementById('fineCollected').value) || 0;
 
-  const payload = { busNo, routeNo, nonTicketHolders, fineCollected };
-  console.log('Submitting check data:', payload); // Debug log
+            const payload = { busNo, routeNo, nonTicketHolders, fineCollected };
+            console.log('Submitting check data:', payload);
 
-  try {
-    const response = await fetch('/api/checkBus', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+            try {
+                const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://bus-v9k2.onrender.com';
+                const response = await fetch(`${baseUrl}/api/checkBus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-    const text = await response.text(); // Get raw response for debugging
-    console.log('Raw response:', text); // Debug log
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server responded with error:', response.status, errorText);
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
 
-    const result = JSON.parse(text); // Parse as JSON
-    if (result.success) {
-      alert(`Bus ${busNo} checked. Non-ticket holders: ${nonTicketHolders}, Fine: Rs${fineCollected}`);
-      closeCheckModal();
-    } else {
-      alert('Error updating bus check: ' + result.error);
-    }
-  } catch (err) {
-    console.error('Fetch error:', err); // Debug log
-    alert('Error: ' + err.message + '. Check console for details.');
-  }
-};
+                const result = await response.json();
+                console.log('Server response:', result);
+
+                if (result.success) {
+                    alert(`Bus ${busNo} checked. Non-ticket holders: ${nonTicketHolders}, Fine: Rs${fineCollected}`);
+                    closeCheckModal();
+                } else {
+                    alert('Error updating bus check: ' + result.error);
+                }
+            } catch (err) {
+                console.error('Fetch error:', err);
+                alert('Failed to submit bus check. Error: ' + err.message + '. Check console for details.');
+            }
+        };
 
         function adjustMarkerOpacity(zoom) {
             const opacity = zoom > 16 ? 1 : zoom > 14 ? 0.7 : 0.4;
@@ -1183,12 +1191,17 @@ document.getElementById('checkForm').onsubmit = async function(e) {
             e.preventDefault();
             const busNo = document.getElementById('busNo').value;
             const conductorName = document.getElementById('conductorName').value;
+            const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://bus-v9k2.onrender.com';
             try {
-                const response = await fetch('/api/recordAttendance', {
+                const response = await fetch(`${baseUrl}/api/recordAttendance`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ busNo, conductorName })
                 });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
                 const result = await response.json();
                 if (result.success) {
                     alert(`Attendance recorded for Bus: ${busNo}, Conductor: ${conductorName}`);
