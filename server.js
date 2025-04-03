@@ -133,18 +133,28 @@ app.get('/', (req, res) => {
 
 // API to update bus check status
 app.post('/api/checkBus', async (req, res) => {
-  const { busNo, routeNo, nonTicketHolders, fineCollected } = req.body;
-  try {
-    const result = await db.collection('busChecks').updateOne(
-      { busNo, timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) } }, // Unique per day
-      { $set: { routeNo, checked: true, nonTicketHolders, fineCollected, timestamp: new Date() } },
-      { upsert: true }
-    );
-    res.json({ success: true, result });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+    console.log('Received /api/checkBus request:', req.body); // Debug log
+    const { busNo, routeNo, nonTicketHolders, fineCollected } = req.body;
+    
+    if (!busNo || !routeNo || nonTicketHolders === undefined || fineCollected === undefined) {
+      console.error('Invalid request body:', req.body);
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+  
+    try {
+      if (!db) throw new Error('Database not connected');
+      const result = await db.collection('busChecks').updateOne(
+        { busNo, timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+        { $set: { routeNo, checked: true, nonTicketHolders, fineCollected, timestamp: new Date() } },
+        { upsert: true }
+      );
+      console.log('Bus check updated:', result); // Debug log
+      res.json({ success: true, result });
+    } catch (err) {
+      console.error('Error in /api/checkBus:', err.message); // Debug log
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
 // API to record bus attendance
 app.post('/api/recordAttendance', async (req, res) => {
