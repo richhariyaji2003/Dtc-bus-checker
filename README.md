@@ -8,14 +8,13 @@ A web-based Delhi Bus Tracking System using **Node.js, Express, MongoDB, and Lea
 ✅ **Node.js + Express** for backend API  
 ✅ Simple **frontend with HTML, CSS, and JavaScript**  
 
----
+
 
 ## 🛠️ Tech Stack
 - **Frontend:** HTML, CSS, JavaScript, Leaflet.js  
 - **Backend:** Node.js, Express.js  
 - **Database:** MongoDB  
 
----
 
 ## 🚀 Installation Guide
 
