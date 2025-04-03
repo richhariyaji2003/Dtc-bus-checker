@@ -140,12 +140,12 @@
             border-radius: 2px;
             color: #570047;
             pointer-events: none;
-            opacity: 1; /* Default opacity */
-            transition: opacity 0.3s ease; /* Smooth opacity transition */
+            opacity: 1;
+            transition: opacity 0.3s ease;
         }
 
         .bus-dot {
-            background: #ff69b4; /* Pink color */
+            background: #ff69b4;
             border-radius: 50%;
             pointer-events: none;
         }
@@ -490,7 +490,21 @@
         }
 
         .bus-stop-icon svg {
-            opacity: 1; /* Constant opacity for bus stops */
+            opacity: 1;
+        }
+
+        #checkModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            z-index: 10001;
+            color: black;
         }
     </style>
 </head>
@@ -534,6 +548,7 @@
                             <th>Route No</th>
                             <th>Distance</th>
                             <th>Checked</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -624,6 +639,20 @@
         </form>
     </div>
 
+    <div id="checkModal">
+        <h3>Bus Check Details</h3>
+        <form id="checkForm">
+            <input type="hidden" id="checkBusNo" name="busNo">
+            <input type="hidden" id="checkRouteNo" name="routeNo">
+            <label for="nonTicketHolders">Non-Ticket Holders:</label><br>
+            <input type="number" id="nonTicketHolders" name="nonTicketHolders" min="0" required><br><br>
+            <label for="fineCollected">Fine Collected (Rs):</label><br>
+            <input type="number" id="fineCollected" name="fineCollected" min="0" step="1" required><br><br>
+            <button type="submit" class="navbar-button">Submit</button>
+            <button type="button" class="navbar-button" onclick="closeCheckModal()">Cancel</button>
+        </form>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -673,8 +702,8 @@
         const busStopMarkers = {};
         let currentFilter = 'all';
         let hasGeoPermission = false;
-        const ZOOM_THRESHOLD = 14; // Threshold for switching between bus labels and dots
-        const BUS_LABEL_SIZE = [30, 15]; // Fixed size for bus labels
+        const ZOOM_THRESHOLD = 14;
+        const BUS_LABEL_SIZE = [30, 15];
 
         const initialBuses = <%- JSON.stringify(buses) %> || [];
         let initialBusStops = <%- JSON.stringify(busStops) %> || [];
@@ -746,7 +775,8 @@
                             <td>${bus.busNo}</td>
                             <td>${bus.routeNo}</td>
                             <td>${bus.distance.toFixed(2)} km</td>
-                            <td><input type="checkbox" onchange="handleCheck('${bus.busNo}', this.checked)"></td>
+                            <td><input type="checkbox" onchange="handleCheck('${bus.busNo}', this.checked, '${bus.routeNo}')"></td>
+                            <td><button onclick="showCheckModal('${bus.busNo}', '${bus.routeNo}')">Details</button></td>
                         `;
                         tableBody.appendChild(row);
                     }
@@ -754,15 +784,49 @@
             }
         }
 
-        function handleCheck(busNo, checked) {
+        function handleCheck(busNo, checked, routeNo) {
             if (checked) {
-                alert(`Bus ${busNo} marked as checked by ticket inspector.`);
+                showCheckModal(busNo, routeNo);
             }
         }
 
+        function showCheckModal(busNo, routeNo) {
+            document.getElementById('checkBusNo').value = busNo;
+            document.getElementById('checkRouteNo').value = routeNo;
+            document.getElementById('checkModal').style.display = 'block';
+        }
+
+        function closeCheckModal() {
+            document.getElementById('checkModal').style.display = 'none';
+        }
+
+        document.getElementById('checkForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const busNo = document.getElementById('checkBusNo').value;
+            const routeNo = document.getElementById('checkRouteNo').value;
+            const nonTicketHolders = parseInt(document.getElementById('nonTicketHolders').value);
+            const fineCollected = parseInt(document.getElementById('fineCollected').value);
+
+            try {
+                const response = await fetch('/api/checkBus', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ busNo, routeNo, nonTicketHolders, fineCollected })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Bus ${busNo} checked. Non-ticket holders: ${nonTicketHolders}, Fine: Rs${fineCollected}`);
+                    closeCheckModal();
+                } else {
+                    alert('Error updating bus check: ' + result.error);
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        };
+
         function adjustMarkerOpacity(zoom) {
-            // Adjust opacity for bus labels when they are visible
-            const opacity = zoom > 16 ? 1 : zoom > 14 ? 0.7 : 0.4; // Adjusted for finer control
+            const opacity = zoom > 16 ? 1 : zoom > 14 ? 0.7 : 0.4;
             Object.values(busMarkers).forEach(marker => {
                 const element = marker.getElement();
                 if (element && element.classList.contains('bus-label')) {
@@ -782,7 +846,6 @@
             const zoomLevel = map.getZoom();
             const useLabels = zoomLevel >= ZOOM_THRESHOLD;
 
-            // Only remove markers that are no longer in the bus data
             Object.keys(busMarkers).forEach(busNo => {
                 if (!visibleBuses.find(bus => bus.busNo === busNo)) {
                     map.removeLayer(busMarkers[busNo]);
@@ -806,8 +869,6 @@
                     const newLatLng = new L.LatLng(latitude, longitude);
                     animateMarker(marker, marker.getLatLng(), newLatLng);
                     marker.setPopupContent(`Bus: ${busNo}<br>Route: ${routeNo}<br>Lat: ${latitude}<br>Lon: ${longitude}`);
-
-                    // Switch between label and dot based on zoom
                     if (useLabels && !marker.getElement().classList.contains('bus-label')) {
                         marker.setIcon(L.divIcon({
                             className: 'bus-label',
@@ -859,7 +920,6 @@
             const zoomLevel = map.getZoom();
             const bounds = map.getBounds();
 
-            // Clear existing bus stop markers if zoomed out too far
             if (zoomLevel < ZOOM_THRESHOLD) {
                 Object.keys(busStopMarkers).forEach(key => {
                     map.removeLayer(busStopMarkers[key]);
@@ -868,7 +928,6 @@
                 return;
             }
 
-            // Update markers only if stops data is provided
             if (stops && stops.length > 0) {
                 stops.forEach(stop => {
                     const { name, latitude, longitude } = stop;
@@ -886,7 +945,7 @@
                         delete busStopMarkers[key];
                     }
                 });
-                initialBusStops = stops; // Update local stops cache
+                initialBusStops = stops;
             }
         }
 
@@ -1112,12 +1171,26 @@
             hideChallanPortal();
         };
 
-        document.getElementById('attendanceForm').onsubmit = function(e) {
+        document.getElementById('attendanceForm').onsubmit = async function(e) {
             e.preventDefault();
             const busNo = document.getElementById('busNo').value;
             const conductorName = document.getElementById('conductorName').value;
-            alert(`Attendance recorded for Bus: ${busNo}, Conductor: ${conductorName}`);
-            hideAttendancePortal();
+            try {
+                const response = await fetch('/api/recordAttendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ busNo, conductorName })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Attendance recorded for Bus: ${busNo}, Conductor: ${conductorName}`);
+                    hideAttendancePortal();
+                } else {
+                    alert('Error recording attendance: ' + result.error);
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
         };
 
         function checkGeolocationPermission() {
@@ -1230,7 +1303,6 @@
             }
         });
 
-        // Send zoom level to server on zoom change
         map.on('zoomend', () => {
             const zoomLevel = map.getZoom();
             socket.emit('zoomLevel', zoomLevel);
@@ -1249,7 +1321,6 @@
         updateBusStopMarkers(initialBusStops);
         if (document.getElementById('analysisPage').classList.contains('active')) drawHistogram();
 
-        // Send initial zoom level
         socket.emit('zoomLevel', map.getZoom());
     </script>
 </body>
