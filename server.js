@@ -6,22 +6,19 @@ const protobuf = require('protobufjs');
 const fs = require('fs');
 const csv = require('csv-parse');
 const { MongoClient } = require('mongodb');
-require('dotenv').config(); // Load environment variables from .env file
+require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from the 'public' folder
 app.use(express.static('public'));
-app.use(express.json()); // For parsing JSON requests
-
-// Set EJS as the view engine
+app.use(express.json());
 app.set('view engine', 'ejs');
 
 // MongoDB Connection with Retry Logic
-const uri = process.env.MONGODB_URI || 'mongodb+srv://ticketchecker:checker_DTC@821@cluster0.daitar2.mongodb.net/busTrackerDB?retryWrites=true&w=majority';
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const uri = process.env.MONGODB_URI || 'mongodb+srv://ticketchecker:lq2MvkxmjWn8c8Ot@cluster0.daitar2.mongodb.net/busTrackerDB?retryWrites=true&w=majority';
+const client = new MongoClient(uri);
 let db;
 
 async function connectDB() {
@@ -30,42 +27,39 @@ async function connectDB() {
     try {
       await client.connect();
       db = client.db('busTrackerDB');
-      console.log('Connected to MongoDB');
-      break; // Exit loop on successful connection
+      console.log('Successfully connected to MongoDB');
+      break;
     } catch (err) {
       console.error('MongoDB connection error:', err.message);
       retries -= 1;
       if (retries === 0) {
         console.error('Max retries reached. Could not connect to MongoDB.');
-        process.exit(1); // Exit process if connection fails after retries
+        process.exit(1);
       }
       console.log(`Retrying connection (${5 - retries}/5)...`);
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
 }
 
-// Load the GTFS-realtime proto file
+// Load GTFS-realtime proto file
 const protoFile = 'gtfs-realtime.proto';
 const root = protobuf.loadSync(protoFile);
 const FeedMessage = root.lookupType('transit_realtime.FeedMessage');
 
-// API endpoint
+// GTFS API endpoint
 const url = 'https://otd.delhi.gov.in/api/realtime/VehiclePositions.pb?key=7pnJf5w6MCh0JWrdisnafk0YhnKfUqxx';
 
-let busData = []; // Store the latest bus data
-let busStops = []; // Store bus stop data from CSV
-const clientZoomLevels = new Map(); // Store zoom levels for each client
-const ZOOM_THRESHOLD = 14; // Minimum zoom level to send bus stops
+let busData = [];
+let busStops = [];
+const clientZoomLevels = new Map();
+const ZOOM_THRESHOLD = 14;
 
-// Function to parse CSV data
+// Parse CSV data
 const parseCSV = (csvString) => {
   return new Promise((resolve, reject) => {
     const stops = [];
-    csv.parse(csvString, {
-      columns: true,
-      skip_empty_lines: true
-    })
+    csv.parse(csvString, { columns: true, skip_empty_lines: true })
       .on('data', (row) => {
         stops.push({
           name: row.stop_name || 'Unknown Stop',
@@ -73,72 +67,67 @@ const parseCSV = (csvString) => {
           longitude: parseFloat(row.stop_lon)
         });
       })
-      .on('end', () => {
-        resolve(stops);
-      })
-      .on('error', (err) => {
-        reject(err);
-      });
+      .on('end', () => resolve(stops))
+      .on('error', (err) => reject(err));
   });
 };
 
-// Read the CSV file from the 'data' folder
+// Read and parse CSV
 const csvFilePath = 'data/stops.csv';
 const csvString = fs.readFileSync(csvFilePath, 'utf8');
-
-// Parse CSV data once on server start
 parseCSV(csvString)
   .then(stops => {
     busStops = stops;
     console.log(`Parsed ${busStops.length} bus stops from CSV`);
   })
-  .catch(err => {
-    console.error('Error parsing CSV:', err);
-  });
+  .catch(err => console.error('Error parsing CSV:', err));
 
-// Fetch and parse vehicle position data
+// Fetch bus data with retry logic
 const fetchBusData = async () => {
-  try {
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
-    const buffer = response.data;
-    const message = FeedMessage.decode(new Uint8Array(buffer));
-    const data = FeedMessage.toObject(message, {
-      longs: String,
-      enums: String,
-      bytes: String,
-    });
+  let retries = 3;
+  while (retries) {
+    try {
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const buffer = response.data;
+      const message = FeedMessage.decode(new Uint8Array(buffer));
+      const data = FeedMessage.toObject(message, { longs: String, enums: String, bytes: String });
 
-    busData = data.entity
-      .filter(entity => entity.vehicle && entity.vehicle.position)
-      .map(entity => ({
-        busNo: entity.vehicle.vehicle.id || 'Unknown',
-        routeNo: entity.vehicle.trip?.routeId || 'Unknown',
-        latitude: entity.vehicle.position.latitude,
-        longitude: entity.vehicle.position.longitude,
-      }));
+      busData = data.entity
+        .filter(entity => entity.vehicle && entity.vehicle.position)
+        .map(entity => ({
+          busNo: entity.vehicle.vehicle.id || 'Unknown',
+          routeNo: entity.vehicle.trip?.routeId || 'Unknown',
+          latitude: entity.vehicle.position.latitude,
+          longitude: entity.vehicle.position.longitude,
+        }));
 
-    console.log(`Fetched ${busData.length} buses`);
+      console.log(`Fetched ${busData.length} buses`);
 
-    // Emit updated bus data to each connected client
-    io.sockets.sockets.forEach((socket) => {
-      const zoomLevel = clientZoomLevels.get(socket.id) || 0;
-      const updateData = { buses: busData };
-      if (zoomLevel >= ZOOM_THRESHOLD) {
-        updateData.busStops = busStops;
+      io.sockets.sockets.forEach((socket) => {
+        const zoomLevel = clientZoomLevels.get(socket.id) || 0;
+        const updateData = { buses: busData };
+        if (zoomLevel >= ZOOM_THRESHOLD) updateData.busStops = busStops;
+        socket.emit('busUpdate', updateData);
+      });
+      break;
+    } catch (error) {
+      console.error('Error fetching bus data:', error.message);
+      retries -= 1;
+      if (retries === 0) {
+        console.error('Max retries reached for GTFS fetch.');
+        break;
       }
-      socket.emit('busUpdate', updateData);
-    });
-  } catch (error) {
-    console.error('Error fetching bus data:', error.message);
+      console.log(`Retrying GTFS fetch (${3 - retries}/3)...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
 };
 
-// Fetch data every 1 second (1000ms)
 setInterval(fetchBusData, 1000);
 
-// Serve the webpage
+// Serve webpage
 app.get('/', (req, res) => {
-  res.render('index', { buses: busData, busStops: [] }); // Send empty busStops initially
+  res.render('index', { buses: busData, busStops: [] });
 });
 
 // API to update bus check status
@@ -199,35 +188,28 @@ app.post('/api/recordAttendance', async (req, res) => {
   }
 });
 
-// Handle socket connections
+// Socket connections
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
-
-  // Handle zoom level updates from clients
   socket.on('zoomLevel', (zoom) => {
     clientZoomLevels.set(socket.id, zoom);
-    // Immediately send data with appropriate busStops based on zoom
     const updateData = { buses: busData };
-    if (zoom >= ZOOM_THRESHOLD) {
-      updateData.busStops = busStops;
-    }
+    if (zoom >= ZOOM_THRESHOLD) updateData.busStops = busStops;
     socket.emit('busUpdate', updateData);
   });
-
-  // Clean up on disconnect
   socket.on('disconnect', () => {
     clientZoomLevels.delete(socket.id);
     console.log('Client disconnected:', socket.id);
   });
 });
 
-// Start the server after DB connection
+// Start server
 async function startServer() {
-  await connectDB(); // Wait for DB connection before starting server
+  await connectDB();
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    fetchBusData(); // Initial fetch when server starts
+    fetchBusData();
   });
 }
 
